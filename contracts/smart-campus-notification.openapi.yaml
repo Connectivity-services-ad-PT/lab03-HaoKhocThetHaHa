@@ -1,0 +1,441 @@
+openapi: 3.1.0
+
+info:
+  title: Smart Campus Notification Service API
+  version: 1.0.0
+  description: |
+    Multi-channel notification service for Smart Campus.
+    This service handles asynchronous and direct notifications
+    through Email, SMS and Push Notification channels.
+
+  contact:
+    name: Group A7
+    email: a7-smartcampus@example.edu.vn
+
+servers:
+  - url: http://localhost:4010
+    description: Prism mock server
+
+  - url: https://api.campus.local
+    description: Production placeholder
+
+tags:
+  - name: health
+    description: Health check operations
+
+  - name: templates
+    description: Notification template management
+
+  - name: notifications
+    description: Direct notification sending
+
+  - name: history
+    description: Notification history management
+
+security:
+  - bearerAuth: []
+
+paths:
+
+  /health:
+    get:
+      operationId: getHealth
+      summary: Health check
+      description: Check notification service status.
+      tags: [health]
+      security: []
+
+      responses:
+        '200':
+          description: Service is healthy
+
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+
+              examples:
+                ok:
+                  value:
+                    status: ok
+                    service: notification-service
+                    time: '2026-05-27T10:00:00Z'
+
+  /api/v1/templates:
+    get:
+      operationId: getTemplates
+      summary: Get notification templates
+      tags: [templates]
+      description: Retrieve all notification templates in the system
+      responses:
+        '200':
+          description: Template list
+
+          content:
+            application/json:
+              schema:
+                type: array
+
+                items:
+                  $ref: '#/components/schemas/NotificationTemplate'
+
+    post:
+      operationId: createTemplate
+      summary: Create notification template
+      tags: [templates]
+      description: Create a new notification template in the system
+      requestBody:
+        required: true
+
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationTemplate'
+
+      responses:
+        '201':
+          description: Template created
+
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/history:
+    get:
+      operationId: getNotificationHistory
+      summary: Get notification history
+      tags: [history]
+      description: Retrieve notification history of all users
+      responses:
+        '200':
+          description: Notification history list
+
+          content:
+            application/json:
+              schema:
+                type: array
+
+                items:
+                  $ref: '#/components/schemas/NotificationHistory'
+
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/history/{notificationId}:
+    get:
+      operationId: getNotificationById
+      summary: Get notification details
+      tags: [history]
+      description: Retrieve detailed information of a specific notification by ID
+      parameters:
+        - $ref: '#/components/parameters/NotificationId'
+
+      responses:
+        '200':
+          description: Notification details
+
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationHistory'
+
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/direct-send:
+    post:
+      operationId: directSendNotification
+      summary: Send notification directly
+
+      description: |
+        Internal emergency API for sending notification directly
+        without using message queue.
+
+      tags: [notifications]
+
+      requestBody:
+        required: true
+
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DirectSendRequest'
+
+            examples:
+              emailNotification:
+                value:
+                  userId: USER-001
+                  title: Emergency Alert
+                  message: Fire detected in Building A
+                  attachmentUrl: "null"
+
+                  channel:
+                    channelType: email
+                    email: student@campus.edu.vn
+
+      responses:
+        '200':
+          description: Notification sent successfully
+
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    NotificationId:
+      name: notificationId
+      in: path
+      required: true
+
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+
+    HealthStatus:
+      type: object
+
+      additionalProperties: false
+
+      required:
+        - status
+        - service
+        - time
+
+      properties:
+        status:
+          type: string
+          enum: ['ok']
+
+        service:
+          type: string
+
+        time:
+          type: string
+          format: date-time
+
+    NotificationTemplate:
+      type: object
+
+      required:
+        - templateName
+        - channelType
+        - content
+
+      properties:
+        templateId:
+          type: string
+          format: uuid
+
+        templateName:
+          type: string
+
+        channelType:
+          type: string
+          enum: ['email', 'sms', 'push']
+
+        content:
+          type: string
+
+    DirectSendRequest:
+      type: object
+
+      required:
+        - userId
+        - title
+        - message
+        - channel
+
+      properties:
+        userId:
+          type: string
+
+        title:
+          type: string
+
+        message:
+          type: string
+
+        attachmentUrl:
+          type: [string, "null"]
+
+        channel:
+          $ref: '#/components/schemas/NotificationChannel'
+
+    NotificationChannel:
+      oneOf:
+        - $ref: '#/components/schemas/EmailChannel'
+        - $ref: '#/components/schemas/SMSChannel'
+        - $ref: '#/components/schemas/PushChannel'
+
+      discriminator:
+        propertyName: channelType
+
+        mapping:
+          email: '#/components/schemas/EmailChannel'
+          sms: '#/components/schemas/SMSChannel'
+          push: '#/components/schemas/PushChannel'
+
+    EmailChannel:
+      type: object
+
+      required:
+        - channelType
+        - email
+
+      properties:
+        channelType:
+          type: string
+          enum: ['email']
+
+        email:
+          type: string
+          format: email
+
+    SMSChannel:
+      type: object
+
+      required:
+        - channelType
+        - phoneNumber
+
+      properties:
+        channelType:
+          type: string
+          enum: ['sms']
+
+        phoneNumber:
+          type: string
+
+    PushChannel:
+      type: object
+
+      required:
+        - channelType
+        - deviceToken
+
+      properties:
+        channelType:
+          type: string
+          enum: ['push']
+
+        deviceToken:
+          type: string
+
+    NotificationHistory:
+      type: object
+
+      required:
+        - notificationId
+        - status
+        - createdAt
+
+      properties:
+        notificationId:
+          type: string
+          format: uuid
+
+        status:
+          type: string
+          enum: ['PENDING', 'SUCCESS', 'FAILED']
+
+        createdAt:
+          type: string
+          format: date-time
+
+        deliveredAt:
+          type: [string, "null"]
+          format: date-time
+
+    Problem:
+      type: object
+
+      additionalProperties: false
+
+      required:
+        - type
+        - title
+        - status
+
+      properties:
+        type:
+          type: string
+          format: uri
+
+        title:
+          type: string
+
+        status:
+          type: integer
+
+        detail:
+          type: [string, "null"]
+
+        instance:
+          type: [string, "null"]
+  responses:
+
+    BadRequest:
+      description: Invalid request data
+
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+    Unauthorized:
+      description: Authentication required
+
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+    NotFound:
+      description: Resource not found
+
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+    UnprocessableEntity:
+      description: Business validation failed
+
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+    InternalServerError:
+      description: Internal server error
+
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'

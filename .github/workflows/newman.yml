@@ -25,22 +25,27 @@ jobs:
       - name: Lint OpenAPI contracts
         run: npm run lint:contracts
 
-      - name: Start Prism mock servers
+      - name: Start Mock Servers and Diagnose
         run: |
-          nohup npm run mock:iot > prism-iot.log 2>&1 &
-          nohup npm run mock:vision > prism-vision.log 2>&1 &
-
-      - name: Wait for mock servers
-        run: npx wait-on http://localhost:4010/health http://localhost:4011/health --timeout 30000
+          # Khởi động Prism dưới nền và ghi log
+          nohup npx prism mock contracts/iot-ingestion.openapi.yaml -p 4010 --host 0.0.0.0 > prism-iot.log 2>&1 &
+          nohup npx prism mock contracts/ai-vision.openapi.yaml -p 4011 --host 0.0.0.0 > prism-vision.log 2>&1 &
+          
+          # Chờ 5 giây để các mock server nạp cấu hình xong
+          sleep 5
+          
+          echo "=== KIỂM TRA LOG KHỞI ĐỘNG CỦA IOT MOCK ==="
+          cat prism-iot.log || true
+          
+          echo "=== KIỂM TRA LOG KHỞI ĐỘNG CỦA VISION MOCK ==="
+          cat prism-vision.log || true
+          
+          echo "=== BẮT ĐẦU ĐỢI THÔNG CỔNG (TCP MODE) ==="
+          # Sử dụng tiền tố tcp: để kiểm tra mở cổng kết nối, tránh lỗi HTTP mã status từ Prism
+          npx wait-on tcp:127.0.0.1:4010 tcp:127.0.0.1:4011 --timeout 30000
 
       - name: Run Newman contract tests
         run: npm run test:mock
-
-      - name: Show Prism logs on failure
-        if: failure()
-        run: |
-          cat prism-iot.log || true
-          cat prism-vision.log || true
 
       - name: Upload Newman reports
         if: always()
