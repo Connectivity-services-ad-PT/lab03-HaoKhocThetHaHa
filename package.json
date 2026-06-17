@@ -4,10 +4,11 @@
   "private": true,
   "description": "FIT4110 Lab 03 - Postman, Mock Server, Contract Testing, Newman CI",
   "scripts": {
+    "lint:contracts": "spectral lint contracts/*.openapi.yaml",
     "mock:notify": "prism mock contracts/smart-campus-notification.openapi.yaml -p 4010",
     "mock:vision": "prism mock contracts/ai-vision.openapi.yaml -p 4011",
     "mock:iot": "prism mock contracts/iot-ingestion.openapi.yaml -p 4012",
-    "test:mock": "newman run postman/collections/FIT4110_lab03_iot_ingestion.postman_collection.json -e postman/environments/FIT4110_lab03_mock.postman_environment.json -r cli,junit,htmlextra --reporter-junit-export reports/newman-report.xml --reporter-htmlextra-export reports/newman-report.html"
+    "test:mock": "newman run postman/collections/FIT4110_lab03_iot_ingestion.postman_collection.json -e postman/environments/FIT4110_lab03_mock.postman_environment.json -r cli,junit,htmlextra --reporter-junit-export=reports/newman-results.xml --reporter-htmlextra-export=reports/newman-report.html"
   },
   "devDependencies": {
     "@stoplight/prism-cli": "^5.14.2",
